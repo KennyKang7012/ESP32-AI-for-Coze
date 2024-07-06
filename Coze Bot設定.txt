@@ -1,0 +1,107 @@
+~~~MQTT Plugins~~~
+mqtt_topic
+mqtt_payload
+
+***Plugin IDE***
+from runtime import Args
+import paho.mqtt.client as mqtt
+import time
+from typings.MQTTGO_Tool.MQTTGO_Tool import Input, Output
+
+"""
+Each file needs to export a function named `handler`. This function is the entrance to the Tool.
+
+Parameters:
+args: parameters of the entry function.
+args.input - input parameters, you can get test input value by args.input.xxx.
+args.logger - logger instance used to print logs, injected by runtime.
+
+Remember to fill in input/output in Metadata , it helps LLM to recognize and use tool.
+
+Return:
+The return data of the function, which should match the declared output parameters.
+"""
+def handler(args: Args[Input])->Output:
+    client = mqtt.Client()
+    client.connect("broker.mqttgo.io", 1883, 60)
+    client.publish(args.input.mqtt_topic, args.input.mqtt_payload)
+    time.sleep(1)
+    client.disconnect()
+    return {"message": "Done!"}
+
+測試：
+{"mqtt_topic":"Your_Unique_Topic","mqtt_payload":"OFF"}
+
+
+
+
+
+~~~Coze觸發機器人~~~
+Bot Prompt：	{{ImagePrompt}}
+請用text2Imageg生成如下描述的圖片：{{ImagePrompt}}，並將回覆的https網址儲存到mqtt_payload中，最後再執行MQTTGOPost_Tool。
+
+Plugin：		{{ImageURL}}
+LINE Notify
+
+Workflow：	{{StoryParameter}}
+請產生一篇約500字左右的繁體中文童話故事，並且在此童話故事中必須包含{{input}}這些故事元素。
+
+
+
+Bot Prompt Backup：	{{ImagePrompt}}
+請使用getWeather查詢{{ImagePrompt}}當地的天氣狀態，並將回覆的內容儲存到mqtt_payload中，最後再執行MQTTGOPost_Tool。
+
+
+
+
+
+
+~~~Coze穿搭建議產生器~~~
+LLM：	{{Temperature、Status}}
+目前氣溫是攝氏{{Temperature}}度，天氣狀態為{{Status}}。請依照所提供的氣溫與天氣狀態來建議40歲左右的男性應有的穿搭。100字，繁體中文。
+
+Code：	{{GPTResult、Temperature、Status}}
+async function main({ params }: Args): Promise<Output> {
+    const ret = {
+        "DALLE3Prompt":  "目前氣溫是攝氏" + params.Temperature + "度，天氣狀態為" + params.Status + "。" + params.GPTResult + "\n\n圖片上方有大大的目前氣溫文字。細節豐富，高畫質，真實風格。"
+    };
+    return ret;
+}
+
+Code_2：	{{GPTResult、Location、Temperature、Status}}
+async function main({ params }: Args): Promise<Output> {
+    const ret = {
+        "ImageURL": params.DALLE3Result.substring(params.DALLE3Result.indexOf("https"),params.DALLE3Result.lastIndexOf(")")),
+        "Message": "目前" + params.Location + "的氣溫為攝氏" + params.Temperature + "度，天氣狀態為" + params.Status + "。請參考下圖來進行穿搭。"
+    };
+    return ret;
+}
+
+End：	{{Temperature、Location、Status、Humidity}}
+目前{{Location}}氣溫：攝氏 {{Temperature}} 度
+濕度：{{Humidity}} %
+天氣狀態：{{Status}}
+
+
+Prompt：
+當用戶輸入地名之後，請執行WeatherDress_Suggestion來進行後續的動作。
+
+
+
+
+
+~~~Coze有聲童話產生器~~~
+LLM：
+請幫我產生一個分四個段落、約500個繁體中文字的童話故事，並且在此童話故事中必須包含{{Component}}這些故事元素。最後將每個段落的內容都以string格式合併在輸出中。
+
+Code：
+async function main({ params }: Args): Promise<Output> {
+    const ret = {
+        "StoryURL": params.URLInput[0].data.url + ", " + params.URLInput[1].data.url + ", " + params.URLInput[2].data.url + ", " + params.URLInput[3].data.url,
+        "StoryData": params.StoryInput[0] + "\n" + params.StoryInput[1] + "\n" + params.StoryInput[2] + "\n" + params.StoryInput[3]
+    };
+    return ret;
+}
+
+End：
+{{Result}}
